@@ -1,22 +1,25 @@
-# 2026-09-25 coordinated Registry attestation
+# 2026-09-25 coordinated Registry observation
 
-Status: **scheduled**
+Status: **MCPShip observation published**
 
 Coordinated window:
 
-`2026-09-25T16:00:00Z/2026-09-25T17:00:00Z`
+`2026-09-25 16:00–17:00 UTC`
 
 MCPShip intended start:
 
 `2026-09-25T16:05:00Z`
 
-Publication order:
+MCPShip actual runner start:
 
-1. run MCPShip's independent sweep;
-2. freeze the result;
-3. publish MCPShip's result in this directory;
-4. link the published result to the comparison thread;
-5. only then inspect the independently produced comparison result;
-6. document convergence or mismatch separately.
+`2026-09-25T16:05:01.144Z`
 
-No measurement result has been published yet.
+The frozen MCPShip artifact and integrity digest are published in this
+directory. The observation was published before inspecting the comparison
+partner's result.
+
+See:
+
+- `OBSERVATION.md`
+- `mcpship-registry-attestation-20260925T1605Z.json`
+- `SHA256SUMS`

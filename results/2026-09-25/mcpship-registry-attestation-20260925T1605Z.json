@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "attestation": "mcpship-registry-census",
+  "coordinatedWindowUtc": "2026-09-25T16:00:00Z/2026-09-25T17:00:00Z",
+  "intendedStartUtc": "2026-09-25T16:05:00Z",
+  "startedAt": "2026-09-25T16:05:01.144Z",
+  "finishedAt": "2026-09-25T16:07:21.322Z",
+  "source": "Official MCP Registry list endpoint",
+  "query": "version=latest",
+  "implementation": "MCPShip independent Registry census",
+  "snapshot": {
+    "pageCount": 360,
+    "rawRows": 35986,
+    "uniqueCanonicalNames": 35986,
+    "duplicateCanonicalNames": 0,
+    "active": 35599,
+    "deprecated": 387,
+    "otherStatuses": {},
+    "isLatestTrue": 35986,
+    "lastCursor": "xyz.cabalspy/wallet-tracker:1.0.0",
+    "stopReason": "natural_exhaustion",
+    "complete": true
+  },
+  "completeness": {
+    "status": "structurally-complete",
+    "structuralComplete": true,
+    "independentRepeatObserved": false,
+    "exactPopulationMatch": null,
+    "reasons": [
+      "independent-repeat-not-supplied"
+    ]
+  },
+  "error": null,
+  "recordSha256": "ba899fd1427b8c8be04cf91e79ba93830cbdc6fe6541700081a21be0e6dbd6b0"
+}

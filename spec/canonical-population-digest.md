@@ -189,9 +189,17 @@ field is added.
 2. The instant a side's own walk completes, it publishes **only** its
    `commitment_sha256`, the window start/finish timestamps, and the scheme
    string. No counts.
-3. Once both commitments are public, each side publishes its record body and
-   nonce.
-4. Either party — or any third party — recomputes
+3. Reveal opens as soon as **every** participant in `PARTICIPANTS.json` has a
+   commitment published — not at any fixed time. Each side then publishes its
+   record body and nonce. A full set of commitments is the trigger; the §5.4
+   deadline is **not** a waiting period and never delays a window in which
+   everyone showed up.
+4. If the set is still incomplete at `agreed_start + 6h`, the deadline fires and
+   §5.4 takes over: the participant set freezes to whoever committed, those
+   participants reveal, and the window is `partial`. The deadline exists only to
+   stop a missing participant from stalling the series — it is the fallback
+   branch, not the normal one.
+5. Either party — or any third party — recomputes
    `sha256(nonce_hex || canonical_json(body))` and compares it to the published
    commitment.
 
@@ -396,22 +404,63 @@ records is gone permanently — so an absent participant must cost one window's
 A single deadline fixes it:
 
 ```
-reveal_opens_utc = agreed_start_utc + 6h
+freeze_deadline_utc = agreed_start_utc + 6h
 ```
 
-- Before `reveal_opens_utc`: reveals are withheld. A participant that has
-  finished publishes its commitment and then waits. This is the interval that
-  makes §3.3 work at all.
-- At `reveal_opens_utc`: the participant set for the window **freezes** to
-  whoever has a commitment on file. Everyone in that set reveals.
-  - Frozen set == all participants → `revealed`.
-  - Frozen set is a non-empty proper subset → `partial`.
-  - Frozen set empty → `incomplete`.
-- After `reveal_opens_utc`: a late commitment is **not eligible** for that
-  window. It is not added, not merged, and does not reopen the window. A
-  participant that missed the deadline may publish its record as an ordinary
-  standalone artifact, clearly outside `results/<window_id>/`, and it carries no
-  joint standing.
+**The deadline is a fallback, never a waiting period.** Reveal is triggered by a
+complete set of commitments, and only by that:
+
+- **As soon as every participant has a commitment published** — at any time, however
+  early — the set is complete, reveal opens immediately, and the window resolves
+  `revealed`. Nobody waits for the clock. An earlier draft of §3.3 and this section
+  disagreed about this, which would have idled a window in which both sides did
+  everything right.
+- **Only if the set is still incomplete at `freeze_deadline_utc`** does the deadline
+  fire. The participant set freezes to whoever has a commitment on file, those
+  participants reveal, and:
+  - non-empty proper subset → `partial`
+  - empty → `incomplete`
+- **After the freeze fires**, a late commitment is **not eligible** for that window.
+  It is not added, not merged, and does not reopen the window. A participant that
+  missed it may publish its record as an ordinary standalone artifact, clearly
+  outside `results/<window_id>/`, carrying no joint standing.
+
+#### 5.4.1a The freeze must be recorded, or `partial` is not reconstructable
+
+`windows.json` is derived from the final `results/` tree (§5.5), but `partial`
+depends on **which commitments existed at the deadline** — and a late commitment
+sitting in the final tree is byte-for-byte indistinguishable from an on-time one.
+A deriver reading only the tree would therefore promote a frozen `partial` window
+to `revealed`, which is exactly the retroactive upgrade §5.3 forbids.
+
+So the freeze writes one more file, and it is the only thing in this protocol whose
+absence changes a verdict:
+
+```
+results/<window_id>/FREEZE.json
+{
+  "window_id": "2026-09-26T1605Z",
+  "freeze_deadline_utc": "2026-09-26T22:05:00Z",
+  "frozen_participant_set": ["stillos"],
+  "absent_at_deadline": ["mcpship"],
+  "frozen_by": "stillos"
+}
+```
+
+Derivation rule, unambiguous in both directions:
+
+- **`FREEZE.json` absent** → the window was never frozen → eligibility is simply
+  "has a commitment in the tree", and the state is `revealed` if that covers every
+  participant.
+- **`FREEZE.json` present** → eligibility is `frozen_participant_set`, **verbatim and
+  exclusively**. Any commitment in the tree from a participant outside that set is
+  late by definition, is excluded from the window, and does not change the state.
+
+`frozen_by` records who wrote it, because a freeze is one participant asserting a
+wall-clock fact the other cannot check. That is acceptable for the same reason
+§5.4.2 gives — a frozen window is `partial`, and `partial` asserts no agreement, so
+there is nothing to gain by freezing early. A participant who disputes a freeze says
+so in the thread; the file is evidence of what was claimed, not proof it was true.
 
 Six hours is long enough to absorb a wedged cron caught by the next hourly check
 and a manual restart, and short enough that a window resolves the same day it ran.
@@ -489,7 +538,12 @@ the same tree produces byte-identical output:
 3. Within a window, sort participants ascending by `participant_id` as a byte
    string — **not** by publication order, which differs between observers.
 4. Derive `state` from file presence and recomputation per §5.3/§5.4, never from
-   the previous contents of `windows.json`.
+   the previous contents of `windows.json`. **Eligibility comes from
+   `results/<window_id>/FREEZE.json` when that file exists (§5.4.1a), and from
+   plain commitment presence when it does not.** Without this step the derivation
+   is not a pure function of the tree for frozen windows: a late commitment and an
+   on-time one are identical bytes, so a deriver that ignores `FREEZE.json` will
+   silently promote `partial` to `revealed`.
 5. Serialize with the §3.1 canonical JSON rules, then append a single trailing
    `\n`.
 

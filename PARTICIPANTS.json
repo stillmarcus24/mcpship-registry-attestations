@@ -1,0 +1,18 @@
+{
+  "_spec": "spec/canonical-population-digest.md §5.1",
+  "_note": "The single entry point for a consumer. A participant's null signing_keys_url is a stated fact about that participant, not a placeholder to be ignored: artifacts it publishes cannot have their authorship checked until it is filled in.",
+  "participants": [
+    {
+      "id": "mcpship",
+      "operator": "Heaviside Solutions",
+      "signing_keys_url": null,
+      "artifact_base_url": null
+    },
+    {
+      "id": "stillos",
+      "operator": "StillOS Digital Holdings",
+      "signing_keys_url": "https://stillosdigitalholdings.com/notary/keyring",
+      "artifact_base_url": null
+    }
+  ]
+}

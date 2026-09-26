@@ -177,7 +177,227 @@ so it cannot sit underneath a number. An unscoped "no third-party dependencies"
 claim would have been false, which is the reason the field carries its scope in
 its name.
 
-## 5. Out of scope
+## 5. Publication and discovery
+
+§3.3 says "publishes" without saying where, which makes the protocol unrunnable
+by a machine and unauditable by a third party. This section fixes the location.
+
+### 5.1 Participant registry
+
+One file at the repository root, `PARTICIPANTS.json`. It is the only place a
+consumer needs to start from.
+
+```json
+{
+  "participants": [
+    {
+      "id": "mcpship",
+      "operator": "Heaviside Solutions",
+      "signing_keys_url": "https://.../keys",
+      "artifact_base_url": null
+    },
+    {
+      "id": "stillos",
+      "operator": "StillOS Digital Holdings",
+      "signing_keys_url": "https://stillosdigitalholdings.com/notary/keyring",
+      "artifact_base_url": null
+    }
+  ]
+}
+```
+
+`id` is lowercase ASCII `[a-z0-9-]+` and appears verbatim in every filename
+below. `artifact_base_url` is optional: when non-null, the same files MUST also
+be reachable under it at the identical relative paths, so a consumer who does
+not want to depend on a single code host has a second route to byte-identical
+files. When null, this repository is the only publication path, which is a
+stated fact about that participant, not a defect.
+
+### 5.2 Deterministic paths
+
+```
+results/<window_id>/<participant_id>-commitment.json     phase 1
+results/<window_id>/<participant_id>-reveal.json         phase 2
+results/<window_id>/<participant_id>-<phase>.sig.json    detached signature (§6)
+```
+
+`window_id` is the **agreed** UTC start, not the actual runner start:
+`YYYY-MM-DDTHHMMZ` — e.g. `2026-09-26T1605Z`. The agreed start is used because
+both sides know it before either runs, so both can compute the path without
+coordination. Actual start and finish are fields inside the files.
+
+The existing `results/2026-09-25/` directory predates this convention and is
+grandfathered as-is; it is not renamed.
+
+### 5.3 Machine-readable index
+
+`windows.json` at the repository root, append-only, newest last:
+
+```json
+{
+  "windows": [
+    {
+      "window_id": "2026-09-26T1605Z",
+      "agreed_start_utc": "2026-09-26T16:05:00Z",
+      "state": "revealed",
+      "participants": {
+        "stillos":  { "commitment_sha256": "...", "record_sha256": "...", "revealed": true },
+        "mcpship":  { "commitment_sha256": "...", "record_sha256": "...", "revealed": true }
+      }
+    }
+  ]
+}
+```
+
+`state` is one of `committed` (at least one commitment, not all reveals in),
+`revealed` (every participant's reveal present and recomputing), `rejected` (a
+reveal did not recompute — §3.4), `incomplete` (a participant's walk did not
+terminate on cursor exhaustion, so it produced no commitment).
+
+`windows.json` is a **convenience index, never the authority**. Every value in
+it is recomputable from the files in `results/`. A consumer that trusts the
+index over the files has moved the trust boundary to whoever last edited the
+index.
+
+### 5.4 Phase ordering, and what it is not
+
+Phase 1 completeness is decided by file presence: a window is ready to reveal
+when `<id>-commitment.json` exists for every participant in
+`PARTICIPANTS.json`.
+
+The git history of this repository shows the order in which those files
+appeared, which is useful. It is **not a trusted clock** — commit and author
+dates are settable by whoever makes the commit, and both participants have write
+access to their own commits. Publication order is therefore evidenced by the
+commitment scheme itself (§3.2), which does not depend on anyone's timestamp,
+and the git history is corroborating detail rather than proof.
+
+A stronger time bound is available and is offered rather than required: from
+window `2026-09-26T1605Z` onward, StillOS's runner commits each commitment digest
+to its receipt chain as a final step after the record is already sealed on disk.
+Window 1 has no such anchor and is not retroactively given one. The chain's
+hourly heads are sealed, prefix-chained and free to read at
+`https://stillosdigitalholdings.com/notary/head?period=YYYY-MM-DDTHH`. A
+commitment appearing in the sealed head for period `H` was published before `H`
+ended, checkable by anyone without asking StillOS. That anchor is **one
+participant's own instrument**, so it is evidence about StillOS's publication
+time that MCPShip is free to use, ignore, or mirror with its own anchor. It is
+deliberately not written into the protocol as a requirement, because a protocol
+that requires one party's infrastructure is not a protocol between independent
+implementations.
+
+## 6. Signature semantics
+
+§3 binds a record to a digest. A digest alone says nothing about **who**
+produced it: anyone can commit to any numbers. This section adds authorship and
+is explicit about the boundary of what a signature proves.
+
+### 6.1 Detached, never embedded
+
+A signature over a file cannot live inside that file. Each signed artifact gets
+a sidecar:
+
+```json
+{
+  "alg": "ed25519",
+  "signed_file": "stillos-commitment.json",
+  "signed_file_sha256": "<lowercase hex>",
+  "domain": "mcpship-stillos-joint-window/v1/commitment",
+  "key_fingerprint": "21de066900082465",
+  "signature": "<base64>"
+}
+```
+
+### 6.2 What is signed
+
+```
+message = domain || 0x00 || signed_file_sha256_bytes_lowercase_hex_ascii
+```
+
+The domain string is prepended and separated by a zero byte so a signature over
+a commitment can never be replayed as a signature over a reveal. The two domains
+are:
+
+```
+mcpship-stillos-joint-window/v1/commitment
+mcpship-stillos-joint-window/v1/reveal
+```
+
+Signing over the file's digest rather than its raw bytes keeps the signed
+message a fixed 64-hex-character length regardless of artifact size, and the
+digest is published in the sidecar so a verifier recomputes it from the file
+before checking the signature. Both steps are required: a matching signature
+over a digest that does not match the file proves nothing about the file.
+
+`ed25519` is RFC 8032. Both recipes below were **run**, against the same
+signature, before being written here — not quoted from documentation:
+
+```js
+// Node, stdlib only
+const msg = Buffer.concat([Buffer.from(domain, 'utf8'), Buffer.from([0]),
+                           Buffer.from(signed_file_sha256, 'ascii')]);
+crypto.verify(null, msg, public_key_pem, Buffer.from(signature, 'base64'));
+```
+
+```python
+# Python, cryptography
+msg = domain.encode() + b'\x00' + signed_file_sha256.encode('ascii')
+load_pem_public_key(public_key_pem).verify(base64.b64decode(signature), msg)
+```
+
+Both return true for a valid signature and both reject the same signature when
+the domain is switched to the other one, which is the property §6.2 exists for.
+Ed25519 is chosen because each side already has it in its standard library or
+existing dependencies, and StillOS's notary chain is already Ed25519 under the
+same keyring, so no new key material is introduced.
+
+### 6.3 Key discovery resolves by fingerprint, never "current"
+
+`signing_keys_url` returns:
+
+```json
+{ "keys": [ { "fingerprint": "...", "public_key_pem": "-----BEGIN PUBLIC KEY-----\n..." } ] }
+```
+
+A verifier resolves `key_fingerprint` from the sidecar against that array. It
+MUST NOT verify against whichever key the endpoint currently advertises as
+active. StillOS's key has already rotated once (2026-07-31), and a verifier
+pinned to "current" silently fails every artifact signed before a rotation while
+appearing to work on new ones — a failure mode that looks like a signature
+problem and is actually a discovery problem.
+
+Keys are therefore **never removed** from the registry. A compromised key is
+marked as such with the time from which it is untrusted; artifacts signed before
+that time keep verifying, and what changed is their interpretation, not their
+arithmetic.
+
+### 6.4 Unknown algorithm is not a failure of the artifact
+
+If a verifier does not implement the `alg` named in a sidecar, the correct
+outcome is **not evaluated** — a statement about the verifier — not *invalid*,
+which is a statement about the artifact. Reporting an instrument's own gap as a
+finding about the thing measured is the specific error the four-state
+verification vocabulary exists to prevent, and it applies here as much as to
+receipt verification.
+
+### 6.5 What a signature does not prove
+
+A valid signature proves exactly one thing: the holder of the named private key
+produced these bytes.
+
+It does not prove the counts are correct. It does not prove a sweep ran at all.
+It does not prove when the file was created. It does not make the participant
+honest. A participant can sign a fabricated record, and the signature will
+verify — that is not a weakness in the scheme, it is the boundary of what
+authorship means.
+
+What constrains the numbers is the separate, weaker-looking property that two
+independent implementations sweeping the same window converge, with neither able
+to see the other's counts before committing. The signature stops a third party
+from forging either side's record. It does not, and cannot, make either side's
+record true.
+
+## 7. Out of scope
 
 - Runtime liveness. `active` / `deprecated` are Registry metadata and are not
   treated as evidence that a server answers.

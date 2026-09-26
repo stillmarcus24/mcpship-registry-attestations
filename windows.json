@@ -1,0 +1,16 @@
+{
+  "_spec": "spec/canonical-population-digest.md §5.3",
+  "_authority": "CONVENIENCE INDEX, NEVER THE AUTHORITY. Every value here is recomputable from the files under results/. A consumer that trusts this file over those files has moved the trust boundary to whoever last edited this file.",
+  "windows": [
+    {
+      "window_id": "2026-09-25",
+      "agreed_start_utc": "2026-09-25T16:05:00Z",
+      "state": "revealed",
+      "grandfathered": "Predates §5.2's window_id convention and the commit-reveal protocol entirely. Directory name is a date, not YYYY-MM-DDTHHMMZ, and is deliberately not renamed. Both sides published counts directly; MCPShip published blind, StillOS did not, and that asymmetry is recorded rather than smoothed over.",
+      "participants": {
+        "mcpship": { "commitment_sha256": null, "revealed": true, "commit_reveal_used": false, "signed": false },
+        "stillos": { "commitment_sha256": null, "revealed": true, "commit_reveal_used": false, "signed": false }
+      }
+    }
+  ]
+}

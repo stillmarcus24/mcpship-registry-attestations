@@ -1,0 +1,11 @@
+{
+  "alg": "ed25519",
+  "signed_file": "stillos-commitment.json",
+  "signed_file_sha256": "c76e5bbb1dddf8f46116e1e7cd362e5276b0893847d280292a70b5eda53295c1",
+  "domain": "mcpship-stillos-joint-window/v1/commitment",
+  "key_fingerprint": "21de066900082465",
+  "signing_keys_url": "https://stillosdigitalholdings.com/notary/keyring",
+  "signature": "pnI4baXGQXR0eYCn9mbVCXZ7Ffb7JFDOVYtd6khGdEtQI9iIziQZwLX8lBQDQ+DJL3UjE0ztNgYbZa9MoRj+Cg==",
+  "proves": "the holder of this key produced these exact bytes — NOT that the counts are correct, NOT that a sweep ran, NOT when the file was created",
+  "signed_file_name_corrected": "2026-09-27: field updated from the internal label name to the §5.2 published name. The signature covers domain||0x00||signed_file_sha256 and therefore binds the BYTES, not the name — the digest below is unchanged and re-verifies. Our own --verify-sig REJECTED the pre-correction pair on its filename check."
+}

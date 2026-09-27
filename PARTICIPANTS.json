@@ -12,7 +12,7 @@
       "id": "stillos",
       "operator": "StillOS Digital Holdings",
       "signing_keys_url": "https://stillosdigitalholdings.com/notary/keyring",
-      "artifact_base_url": null
+      "artifact_base_url": "https://stillosdigitalholdings.com/joint-windows"
     }
   ]
 }

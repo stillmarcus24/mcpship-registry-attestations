@@ -1,0 +1,12 @@
+{
+  "window_id": "2026-09-28T1605Z",
+  "freeze_deadline_utc": "2026-09-28T22:05:00Z",
+  "frozen_participant_set": [
+    "stillos"
+  ],
+  "absent_at_deadline": [
+    "mcpship"
+  ],
+  "frozen_by": "stillos",
+  "participant_set_source": "PARTICIPANTS.json"
+}
